@@ -80,7 +80,7 @@ for(n in 1801:1850){
 }
 
 
-power.anova.test(groups=2, between.var=((0.5)^2+(-0.5)^2), within.var = MSE4, sig.level = 0.05, power=0.9 )
+power.anova.test(groups=2, between.var=((0.5)^2+(-0.5)^2), within.var = MSE4, sig.level = 0.05, power=0.9)
 
 which(power4_2 > 0.9)
 
