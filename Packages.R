@@ -44,9 +44,7 @@ beta1_hat  - se_beta1hat * qt(1-alpha/2, df=fit1$df.residual); beta1_hat  + se_b
 ### p_value beta (H_0: beta1=0, two sided test)
 2*pt((beta1_hat -0)/se_beta1hat, df=fit1$df.residual, lower.tail = F)
 
-### plot
-par(mfrow=c(1,2))
-plot(fit1, which = c(1,2))
+
 
 ### hat matrix
 X <- matrix(c(rep(1,5), 8,4,0,-4,-8), ncol=2) 
@@ -77,12 +75,17 @@ hat_y2 - se_haty2*qt(1-alpha/2, df=fit1$df.residual); hat_y2 + se_haty2*qt(1-alp
 hat_y2 - se_haty2*W; hat_y2 + se_haty2*W
 
 ### Diagnosis
+#### Plots
+par(mfrow=c(1,2))
+plot(fit1, which = c(1,2))
+
 #### DFFITS
 dffit1 <- dffits(fit1)
 
 dffit1[which.max(dffit1)]
 dfbeta1 <- dfbetas(fit1)
 dfbeta1
+
 
 ### 3. Example 1
 data("mtcars")
