@@ -1,7 +1,5 @@
-# Regression Analaysis
 rm(list=ls())
-
-## 1. Packages
+# Packages
 if("tidyverse" %in% rownames(installed.packages()) == FALSE) {install.packages("tidyverse")
 }
 library("tidyverse")
@@ -15,6 +13,25 @@ library(car)
 if("glmnet" %in% rownames(installed.packages()) == FALSE) {install.packages("glmnet")
 }
 library(glmnet)
+
+
+### Dunnet
+if("DescTools" %in% rownames(installed.packages()) == FALSE) {install.packages("DescTools")
+}
+library(DescTools)
+
+### lme4
+#oo <- options(repos = "https://cran.r-project.org/")
+#install.packages("Matrix")
+if("lme4" %in% rownames(installed.packages()) == FALSE) {install.packages("lme4")
+}
+library(lme4)
+library(lmerTest)
+#options(oo)
+
+# Regression Analaysis
+
+
 
 ## 2. Calculation
 n <- 100
@@ -86,6 +103,14 @@ dffit1[which.max(dffit1)]
 dfbeta1 <- dfbetas(fit1)
 dfbeta1
 
+
+#### Box-cox
+library(MASS)
+bc <- boxcox(Y~X)
+lambda <- bc$x[which.max(bc$y)]
+lambda
+
+Y_star <- (Y^lambda-1)/lambda
 
 ### 3. Example 1
 data("mtcars")
@@ -186,3 +211,139 @@ coef.glmnet(bestlasso_fit)
 
 
 # Experimental Design
+
+## 1. Sampling distributions
+
+ybars <- sapply(1:200, function(rep){
+  mean(rnorm(n=50, mean=2, sd=3))
+})
+hist(ybars, probability = T, breaks="fd")
+lines(seq(0, 4, l=1e2), dnorm(seq(0,4, l=1e2), mean=2, sd=3/sqrt(50)))
+
+
+## 2. Testing difference in means
+data(iris)
+df1 <- iris$Sepal.Length
+t.test(df1[iris$Species=="setosa"], df1[iris$Species=="versicolor"], var.equal=F)
+
+
+### Checking assumptions
+
+Fstat <- var(df1[iris$Species=="setosa"]) / var(df1[iris$Species=="versicolor"])
+n1 = length(df1[iris$Species=="setosa"])
+n2 = length(df1[iris$Species=="versicolor"])
+
+### p-value
+2*min(pf(Fstat, df1=n1-1, df2=n2-1), pf(1/Fstat, df1=n1-1, df2=n2-1))
+pf(Fstat, df1=n1-1, df2=n2-1)
+
+
+## 3. ANOVA
+data("mtcars")
+
+fit2 <- lm(qsec~as.factor(cyl), data=mtcars)
+summary(fit2)
+
+### Checking assumptions
+qqnorm(resid(fit2))
+qqline(resid(fit2))
+plot(fit2, which=2)
+
+plot(fitted.values(fit2), resid(fit2))
+plot(fit2, which=1)
+
+bartlett.test(qsec~as.factor(cyl), data=mtcars)
+library(car)
+leveneTest(qsec~as.factor(cyl), data=mtcars)
+
+### Mean vs sds plot
+sds <- aggregate(qsec~as.factor(cyl), data=mtcars, FUN=sd)
+means <- aggregate(qsec~as.factor(cyl), data=mtcars, FUN=mean)
+par(mar=c(4,4,1,1))
+plot(log(means$qsec), log(sds$qsec), xlab="log-mean", ylab="log-SD")
+
+### Variance-stabilizing Transformation
+
+### alpha : slope, lambda = 1 - alpha : power transformation
+
+
+### Post Hoc
+library(DescTools)
+PostHocTest(aov(qsec~as.factor(cyl), data=mtcars), method = "hsd")
+TukeyHSD(aov(qsec~as.factor(cyl), data=mtcars), which=1, conf.level=1-alpha)
+
+### ANOVA test
+library(car)
+anova(fit2, fit3)
+
+
+### Refit with transformed data
+fit3 <- lm(sqrt(qsec)~as.factor(cyl), data=mtcars)
+summary(fit3)
+
+par(mfrow=c(1,2))
+plot(fit3, which=c(1,2))
+
+
+### Non-parametric inference
+kruskal.test(qsec~as.factor(cyl), data=mtcars)
+
+### Example 2: Determining Sample Size
+df_ex2 <- data.frame(times = c(65, 81, 57, 66, 82, 82, 67, 59, 75, 70, 
+                            64, 71, 83, 59, 65, 56, 69, 74, 82, 79), 
+                  type=factor(rep(1:2, each=10)))
+fit3_2 <- aov(times~type, data=df_ex2)
+fit3_2_sum <- summary(fit3_2)
+MSE3 <- unlist(fit3_2_sum)[6]
+n <- 10
+alpha <- 0.05
+F_alpha <- qf(1-alpha, df1=1, df2=18)
+
+ncp_3 <- ((1)^2+(-1)^2) / (MSE3/n) ## Non-centrality parameter with an error variance estimate
+power3 <- pf(F_alpha, df1=1, df2=18, ncp=ncp_3, lower.tail = F) 
+
+power3_2 <- c()
+for(n in 1801:1850){
+  F_alpha2 <- qf(1-alpha, df1=1, df2=2*(n-1))
+  ncp_3_2 <- ((0.5)^2+(-0.5)^2) / (MSE3/n) ## Non-centrality parameter with an error variance estimate
+  power3_2 <- c(power3_2, pf(F_alpha2, df1=1, df2=2*(n-1), ncp=ncp_3_2, lower.tail = F))
+}
+
+power.anova.test(groups=2, between.var=((0.5)^2+(-0.5)^2), within.var = MSE3, sig.level = 0.05, power=0.9)
+
+which(power3_2 > 0.9)
+
+## 4. Random effect models
+
+### MME
+### Fixed model
+#### MS_A / MS_E
+
+### Mixed model if block effect is random
+#### MS_A / MS_AB
+
+#### hat sigma^2_block = 1/(an) * (MS_{B} - MS_{AB})
+#### hat sigma^2_{A X B} = 1/n * (MS_{AB} - MS_{E})
+
+### REML
+library(lme4)
+fit4 <- lmer(Yield~as.factor(Pressure)+as.factor(Temperature)+(1 | Day))
+ranova()
+
+## 5. Factorial Design
+fit4 <- lm(Yield~A*B*C*D) ## All orthogonal design 
+summary(fit4)
+
+## Basic -> Interaction plot -> Interaction test -> Multiplicative model fit
+## Multiplicative model fit -> Reduce term (Especially Single Replicate Experiment)
+
+## 6. Nested Design
+
+lmer(Y~Treatment+(1|Batch:Treatment))
+
+aov(Y~Treatment+Batch:Treatment)
+
+
+# Others
+
+df1[df1$a %in% c(1,3), ]

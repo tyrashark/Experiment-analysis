@@ -68,9 +68,7 @@ alpha <- 0.05
 F_alpha <- qf(1-alpha, df1=1, df2=18)
 
 ncp_4 <- ((1)^2+(-1)^2) / (MSE4/n) ## Non-centrality parameter with an error variance estimate
-
 power4 <- pf(F_alpha, df1=1, df2=18, ncp=ncp_4, lower.tail = F) 
-
 
 power4_2 <- c()
 for(n in 1801:1850){
@@ -78,7 +76,6 @@ for(n in 1801:1850){
   ncp_4_2 <- ((0.5)^2+(-0.5)^2) / (MSE4/n) ## Non-centrality parameter with an error variance estimate
   power4_2 <- c(power4_2, pf(F_alpha2, df1=1, df2=2*(n-1), ncp=ncp_4_2, lower.tail = F))
 }
-
 
 power.anova.test(groups=2, between.var=((0.5)^2+(-0.5)^2), within.var = MSE4, sig.level = 0.05, power=0.9)
 
