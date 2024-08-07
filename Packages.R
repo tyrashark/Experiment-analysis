@@ -393,13 +393,25 @@ summary(fit4)
 ## Basic -> Interaction plot -> Interaction test -> Multiplicative model fit
 ## Multiplicative model fit -> Reduce term (Especially Single Replicate Experiment)
 
+
+### Single Replicate Analysis for testing interaction effects (non-zero effects)
+coefs <- coef(fit4) ## should be orthogonal coding
+sort(coefs[-1])
+
+qqnorm(coefs[-1]*2, dataa=T) ## Average Effect size *2
+qqline(coefs[-1]*2, dataa=T)
+qqnorm(abs(coefs[-1]*2), dataa=T)
+
 ## 6. Nested Design
 
 lmer(Y~Treatment+(1|Batch:Treatment))
-
 aov(Y~Treatment+Batch:Treatment)
+aov(Y~Treatment/Batch)
 
+## 7. Split-plot Design
 
+aov(Y~Replicate+ Whole + Sub + Error(Whole:Replicate))
+lmer(Y~Whole + Sub + (1|Replicate/Whole))
 # Others
 
 df1[df1$a %in% c(1,3), ]
