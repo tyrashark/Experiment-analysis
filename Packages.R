@@ -1,8 +1,14 @@
 rm(list=ls())
 # Packages
+
+### Tools
 if("tidyverse" %in% rownames(installed.packages()) == FALSE) {install.packages("tidyverse")
 }
 library("tidyverse")
+
+if("readxl" %in% rownames(installed.packages()) == FALSE) {install.packages("readxl")
+}
+library("readxl") ## Read xlsx files
 
 ### VIF
 if("car" %in% rownames(installed.packages()) == FALSE) {install.packages("car")
@@ -114,11 +120,12 @@ Y_star <- (Y^lambda-1)/lambda
 
 ### 3. Example 1
 data("mtcars")
-df_ex1 <- mtcars %>% select(qsec, disp, cyl, wt, mpg)
+mtcars
+df_ex1 <- mtcars[,c("qsec", "disp", "cyl", "wt", "mpg")]
 df_ex1$cyl <- as.factor(df_ex1$cyl)
 attach(df_ex1)
 grid <- seq(from=min(df_ex1$disp), to=max(disp), l=1e2) 
-pred_mean <- mtcars %>% select(wt, mpg) %>% apply(2, FUN=mean) 
+pred_mean <- df_ex1[,c("wt","mpg")] %>% apply(2, FUN=mean) 
 newdata <- cbind(matrix(c(grid, rep(pred_mean, each=1e2)),
                         ncol=1+length(pred_mean))) %>% as.data.frame()
 colnames(newdata) = c("disp", "wt", "mpg")
@@ -197,17 +204,48 @@ stepwise3 <- step(fit3, direction="both")
 ### Ridge and Lasso
 coefficients(fit3) ### Ordinary LS
 
-ridge_cvfit <- cv.glmnet(X[,-1], df_ex1$qsec, nfolds = 5, alpha = 0) ## Ridge pen
+#### Standardized X
+mat_ex1 <- apply(df_ex1, 2, as.numeric)
+mat_ex1
+X <- mat_ex1[,-1]
+X_st <- apply(X, 2, scale)
+Y_cen <- scale(df_ex1$qsec, scale=F)
+p = length(colnames(X_st))
+
+## 1. Ridge
+#### traceplot
+ridge_trace <- glmnet(X_st, Y_cen, alpha=0, lambda = seq(0,0.2, length=100), intercept=F)
+matplot(ridge_trace$lambda, t(ridge_trace$beta), xlab="lambda", 
+        ylab="standarized regression coeff", col=1:p, pch=1, main="Traceplot") 
+legend("topright", pch=16, col=1:p, legend=colnames(X_st), title="Shrinked effects") 
+
+set.seed(100)
+ridge_cvfit <- cv.glmnet(X, Y_cen, nfolds = 5, alpha = 0, intercept=F, lambda = seq(0,0.2, length=100)) ## Ridge pen
 lambda <- ridge_cvfit$lambda.min; cv_error <- min(ridge_cvfit$cvsd)
 lambda
-bestridge_fit <-glmnet(X[,-1], df_ex1$qsec, nfolds = 5, alpha = 0, lambda=lambda) 
-coef.glmnet(bestridge_fit)
+bestridge_fit <- glmnet(X_st, Y_cen, alpha=0, lambda=lambda, intercept = FALSE)
+selection <- coef.glmnet(bestridge_fit) 
+abline(h=selection[-1, ], col=1:p)
 
-lasso_cvfit <- cv.glmnet(X[,-1], df_ex1$qsec, nfolds = 5, alpha = 1) ## LASSO pen
+residuals_ex1 <- Y_cen - X_st%*% as.vector(bestridge_fit$beta)
+fitted_ex1 <- mean(df_ex1$qsec) + X_st%*% as.vector(bestridge_fit$beta)
+
+## 2. Lasso
+#### traceplot
+lasso_trace <- glmnet(X_st, Y_cen, alpha=1, lambda = seq(0,0.2, length=100), intercept=F)
+matplot(lasso_trace$lambda, t(lasso_trace$beta), xlab="lambda", 
+        ylab="standarized regression coeff", col=1:p, pch=1, main="Traceplot") 
+legend("topright", pch=16, col=1:p, legend=colnames(X_st), title="Shrinked effects") 
+
+set.seed(100)
+lasso_cvfit <- cv.glmnet(X, Y_cen, nfolds = 5, alpha = 1, intercept=F, lambda = seq(0,0.2, length=100)) ## Ridge pen
 lambda <- lasso_cvfit$lambda.min; cv_error <- min(lasso_cvfit$cvsd)
 lambda
-bestlasso_fit <-glmnet(X[,-1], df_ex1$qsec, nfolds = 5, alpha = 1, lambda=lambda) 
-coef.glmnet(bestlasso_fit)
+bestlasso_fit <- glmnet(X_st, Y_cen, alpha=1, lambda=lambda, intercept = FALSE)
+selection <- coef.glmnet(bestlasso_fit) 
+abline(h=selection[-1, ], col=1:p)
+
+
 
 
 # Experimental Design
@@ -276,7 +314,6 @@ TukeyHSD(aov(qsec~as.factor(cyl), data=mtcars), which=1, conf.level=1-alpha)
 library(car)
 anova(fit2, fit3)
 
-
 ### Refit with transformed data
 fit3 <- lm(sqrt(qsec)~as.factor(cyl), data=mtcars)
 summary(fit3)
@@ -312,6 +349,25 @@ for(n in 1801:1850){
 power.anova.test(groups=2, between.var=((0.5)^2+(-0.5)^2), within.var = MSE3, sig.level = 0.05, power=0.9)
 
 which(power3_2 > 0.9)
+
+### Interaction effects
+interaction.plot()
+
+#### Tukey's Test of Nonadditivity
+library(readxl)
+data2 <- read_xlsx("jan_17_data_sets.xlsx", sheet = "1.brochure")
+
+fit2 <- aov(response ~ design + Region, data=data2, contrasts = list(design="contr.helmert", Region="contr.helmert"))
+summary(fit2)
+q2 = fitted(fit2)^2
+fit2_tukey <- lm(response ~ design + Region + q2, data=data2, contrasts = list(design="contr.helmert", Region="contr.helmert"))
+
+### Find the orthogonal effects 
+X_2 <- model.matrix(~ design + Region, data=data2, contrasts = list(design="contr.helmert", Region="contr.helmert"))
+tau_hat <- fit2$coefficients[2:3]
+beta_hat <- fit2$coefficients[4:6]
+X_2[,2:3] %*% tau_hat
+X_2[,4:6] %*% beta_hat
 
 ## 4. Random effect models
 
