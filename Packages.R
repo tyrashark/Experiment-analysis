@@ -78,7 +78,7 @@ lm(Y~X)$fitted.values
 
 ### Working-Hotelling Covariance
 p <- 2
-W <- sqrt(2*qf(1-alpha, df1=p, df2=n-p))
+W <- sqrt(p*qf(1-alpha, df1=p, df2=n-p))
 
 ### Joint confidence intervals
 beta0_hat  - se_beta0hat * W; beta0_hat  + se_beta0hat * W
@@ -151,7 +151,7 @@ X <- model.matrix(~ disp + mpg + wt, data=df_ex1)
 X_grid <- model.matrix(~ disp + mpg + wt, data=newdata)
 H_grid <- X_grid%*%solve(t(X)%*%X)%*%t(X_grid)
 se_pred <- sqrt(MSE1_2*diag(H_grid))
-W2 <- sqrt(2*qf(1-alpha, df1=p, df2=n-p))
+W2 <- sqrt(p*qf(1-alpha, df1=p, df2=n-p))
 se_pred
 H_grid 
 
@@ -180,12 +180,12 @@ matlines(grid, pred_mat, type = "l", lty=1, lwd=2, col=1:nlevel_cyl, xlab = "dis
 X <- model.matrix(qsec~., data=df_ex1) 
 X_grid <- model.matrix(~., data=newdata2) 
 H_grid <- X_grid%*%solve(t(X)%*%X)%*%t(X_grid) 
-df1 <- ncol(X)
+p <- ncol(X)
 df2 <- fit3$df.residual
 MSE1_3 <- sum(fit3$residuals^2)/df2
 se_pred <- sqrt(MSE1_3*diag(H_grid)) 
 alpha <- 0.05
-W2 <- sqrt(2 * qf(1-alpha, df1, df2))
+W2 <- sqrt(p * qf(1-alpha, p, df2))
 
 pred_line_W_upper <- pred_mat + matrix(se_pred*W2, ncol=nlevel_cyl, byrow=F)
 pred_line_W_lower <- pred_mat - matrix(se_pred*W2, ncol=nlevel_cyl, byrow=F)
